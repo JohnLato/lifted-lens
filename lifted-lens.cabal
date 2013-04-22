@@ -1,0 +1,23 @@
+name:                lifted-lens
+version:             0.1.0.0
+synopsis:            lenses lifted into arbitrary DSLs
+-- description:         
+license:             BSD3
+license-file:        LICENSE
+author:              John Lato
+maintainer:          jwlato@gmail.com
+-- copyright:           
+category:            Language
+build-type:          Simple
+cabal-version:       >=1.8
+
+library
+  exposed-modules:     Language.Lens.Naming
+                      ,Language.Lens.Tag
+  -- other-modules:       
+  build-depends:       base >=4.5 && < 5
+                      ,template-haskell >=2.7 && < 2.9
+                      ,beamable ==0.1.*
+  hs-source-dirs:      src
+
+  -- build-depends:       base ==4.6.*, test-framework ==0.6.*, test-framework-hunit ==0.3.*, HUnit ==1.2.*, template-haskell ==2.8.*, beamable ==0.1.*
