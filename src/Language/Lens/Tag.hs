@@ -71,7 +71,7 @@ deriveTags typeName = do
 
         mkTagType :: Maybe Name -> Name -> Dec
         mkTagType mNewType name = let name' = preNT mNewType name
-                                  in DataD [] name' [] [NormalC name' []] [''Generic]
+                                  in DataD [] name' [] [NormalC name' []] [''Show, ''Generic]
 
         mkBeamInst :: Maybe Name -> Name -> Dec
         mkBeamInst mNewType acc =
