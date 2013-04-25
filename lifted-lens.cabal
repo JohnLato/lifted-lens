@@ -13,6 +13,8 @@ cabal-version:       >=1.8
 
 library
   exposed-modules:     Language.Lens.Naming
+                      ,Language.Lens.Dispatch
+                      ,Language.Lens.Lifted
                       ,Language.Lens.Tag
   -- other-modules:       
   build-depends:       base >=4.5 && < 5
