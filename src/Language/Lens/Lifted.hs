@@ -104,10 +104,10 @@ unType (AeTup l r) = AtTup (unType l) (unType r)
 --
 -- Since the field type is generally not known, we have to process it using
 -- the class interface.  Currently this just means we can beam it, so you may
--- as well use 'encodeFromTree' instead of this function.
-runTree :: forall r enum full. (Beamable full, Dispatch enum)
+-- as well use 'encodeTree' instead of this function.
+runTree :: forall r enum full. (DispatchCxt enum ~ Beamable, Beamable full, Dispatch enum)
         => AccessTree enum
-        -> (forall b. Beamable b => b -> r)
+        -> (forall b. DispatchCxt enum b => b -> r)
         -> full
         -> r
 runTree dsl consumer = case dsl of
@@ -115,12 +115,11 @@ runTree dsl consumer = case dsl of
     AtId      -> consumer
     AtCmp l r -> runTree r (runTree l consumer)
     AtTup l r -> \f -> runTree l (\lC -> runTree r (\rC -> consumer (lC,rC)) f) f
--- I'd like to make this work with polymorphic constraints, but that will only
--- happen if they're embedded in the Dispatch class.  But then how to
--- specify the context to use?
+-- I'd like to make this work with polymorphic constraints, but am currently
+-- stuck on the tuple part.  If i drop support for that, no problem...
 
 -- | 'encode' the field specified by 'dsl' of the full value.
-encodeTree :: forall enum full. (Beamable full, Dispatch enum)
+encodeTree :: forall enum full. (Beamable full, Dispatch enum, DispatchCxt enum ~ Beamable)
         => AccessTree enum
         -> full
         -> ByteString
