@@ -26,16 +26,13 @@ module Language.Lens.Lifted (
 -- * Untyped accessor DSL
 , AccessTree (..)
 -- * running the untyped DSL
-, encodeTree
 , runTree
 , module Z
 ) where
 
 import Prelude hiding ((.), id)
 import Control.Category
-import Data.Beamable.Internal
-import Data.Beamable (encode)
-import Data.ByteString (ByteString)
+import Data.Beamable
 import GHC.Generics
 import Unsafe.Coerce (unsafeCoerce)
 
@@ -103,9 +100,9 @@ unType (AeTup l r) = AtTup (unType l) (unType r)
 -- | Run an untyped DSL.
 --
 -- Since the field type is generally not known, we have to process it using
--- the class interface.  Currently this just means we can beam it, so you may
--- as well use 'encodeTree' instead of this function.
-runTree :: forall r enum full. (DispatchCxt enum ~ Beamable, Beamable full, Dispatch enum)
+-- the class interface 'DispatchCxt', which is defined when 'deriveTagDispatch'
+-- is called.
+runTree :: forall r enum full. (DispatchCxt enum full, Dispatch enum)
         => AccessTree enum
         -> (forall b. DispatchCxt enum b => b -> r)
         -> full
@@ -114,13 +111,4 @@ runTree dsl consumer = case dsl of
     AtTag tag -> dispatch tag (\t -> consumer . getTag t . unsafeCoerce)
     AtId      -> consumer
     AtCmp l r -> runTree r (runTree l consumer)
-    AtTup l r -> \f -> runTree l (\lC -> runTree r (\rC -> consumer (lC,rC)) f) f
--- I'd like to make this work with polymorphic constraints, but am currently
--- stuck on the tuple part.  If i drop support for that, no problem...
-
--- | 'encode' the field specified by 'dsl' of the full value.
-encodeTree :: forall enum full. (Beamable full, Dispatch enum, DispatchCxt enum ~ Beamable)
-        => AccessTree enum
-        -> full
-        -> ByteString
-encodeTree dsl = runTree dsl encode
+    AtTup l r -> \f -> runTree l (\lC -> runTree r (\rC -> liftPair dsl (Just (lC,rC)) $ consumer (lC,rC)) f) f

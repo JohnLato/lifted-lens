@@ -17,7 +17,6 @@
 module Language.Lens.Dispatch (
   Dispatch (..)
 , Dispatchable (..)
-, DispatchCxt (..)
 , deriveTagDispatch
 ) where
 
@@ -32,8 +31,9 @@ import Language.Lens.Tag
 
 -- | Type-based dispatch driven by an enumeration value.
 class Dispatch e where
-    type DispatchCxt e :: * -> Constraint
+    type DispatchCxt e b :: Constraint
     dispatch :: e -> (forall t. (IsTag t, Dispatchable t e, DispatchCxt e (Component (Full t) t)) => t -> r) -> r
+    liftPair :: (DispatchCxt e l, DispatchCxt e r) => p0 e -> p1 (l, r) -> (DispatchCxt e (l, r) => k) -> k
 
 -- | Generate an enumeration value to dispatch on this type.
 class Dispatchable t e where
@@ -63,14 +63,18 @@ deriveTagDispatch enumNameStr contexts = do
 mkDispatchInst :: Name -> [(Name,Name)] -> [Name] -> Q Dec
 mkDispatchInst eTyp tconstrs contexts = do
     fnNm <- newName "f"
+    aNm  <- newName "a"
+    fooNm <- newName "cxtTypeVar"
     let iType = return $ ConT ''Dispatch `AppT` ConT eTyp
         newClause (tag,eConstr) = do
             (TyConI (DataD _ _ _ [NormalC tagConstr _] _)) <- reify tag
             clause [conP eConstr [], varP fnNm]
                    (normalB (varE fnNm `appE` conE tagConstr)) []
         dispatchFn = funD 'dispatch (map newClause tconstrs)
-        dispCxt       = return $ TySynInstD ''DispatchCxt [ConT eTyp] (mkContextSyn contexts)
-    instanceD (return []) iType [dispCxt, dispatchFn]
+        liftFn     = funD 'liftPair [clause [wildP, wildP, varP aNm]
+                        (normalB (varE aNm)) []]
+        dispCxt    = return $ TySynInstD ''DispatchCxt [ConT eTyp, VarT fooNm] (mkContextSyn fooNm contexts)
+    instanceD (return []) iType [dispCxt, dispatchFn, liftFn]
 
 mkDispatchable :: Name -> (Name,Name) -> Dec
 mkDispatchable eTyp (tag, eConNm) =
@@ -79,7 +83,7 @@ mkDispatchable eTyp (tag, eConNm) =
         dFn     = FunD 'signDispatch [dClause]
     in InstanceD [] iType [dFn]
 
-mkContextSyn :: [Name] -> Type
-mkContextSyn [x]   = ConT x -- since there's no single-element tuple yet, need to special-case it...
-mkContextSyn xs    = foldl (AppT) (TupleT (length xs)) (map ConT xs)
+mkContextSyn :: Name -> [Name] -> Type
+mkContextSyn var [x]   = ConT x `AppT` VarT var -- since there's no single-element tuple yet, need to special-case it...
+mkContextSyn var xs    = foldl (\r t -> AppT r (AppT t (VarT var))) (TupleT (length xs)) (map ConT xs)
 
