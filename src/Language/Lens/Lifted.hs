@@ -19,6 +19,7 @@ module Language.Lens.Lifted (
   AccessExp
 -- ** Creating typed DSL values
 , aeTag
+, aeTup
 -- ** Running/using the typed DSL
 , runDSL
 , unType
@@ -49,11 +50,13 @@ data AccessExp enum full component where
     AeId  :: AccessExp enum full full
     AeTag :: (IsTag tag, Dispatchable tag enum) => tag -> AccessExp enum full component
     AeCmp :: AccessExp enum p component -> AccessExp enum full p -> AccessExp enum full component
+    AeTup :: AccessExp enum full cL -> AccessExp enum full cR -> AccessExp enum full (cL,cR)
 
 instance Show (AccessExp enum full component) where
     show (AeId)      = "AeId"
     show (AeTag tag) = "AeTag " ++ getTagName tag
     show (AeCmp l r) = "AeCmp (" ++ show l ++ ") (" ++ show r ++ ")"
+    show (AeTup l r) = "AeTup (" ++ show l ++ ") (" ++ show r ++ ")"
 
 instance Category (AccessExp enum) where
     id = AeId
@@ -63,12 +66,16 @@ instance Category (AccessExp enum) where
 aeTag :: (IsTag tag, Dispatchable tag enum) => tag -> AccessExp enum full component
 aeTag = AeTag
 
+aeTup :: AccessExp enum full left -> AccessExp enum full right -> AccessExp enum full (left,right)
+aeTup = AeTup
+
 -- | Run the typed DSL, accessing a field of type 'component' in the 'full'
 -- data value.
 runDSL :: AccessExp enum full component -> full -> component
 runDSL AeId        = id
 runDSL (AeTag tag) = unsafeCoerce . getTag tag . unsafeCoerce
 runDSL (AeCmp l r) = runDSL l . runDSL r
+runDSL (AeTup l r) = \f -> (runDSL l f, runDSL r f)
 
 -------------------------------------------------------------
 -- untyped DSL stuff
@@ -78,6 +85,7 @@ data AccessTree enum =
     AtTag enum
   | AtId
   | AtCmp (AccessTree enum) (AccessTree enum)
+  | AtTup (AccessTree enum) (AccessTree enum)
   deriving (Show, Eq, Ord, Generic)
 
 instance Beamable enum => Beamable (AccessTree enum)
@@ -90,6 +98,7 @@ unType :: AccessExp enum full component -> AccessTree enum
 unType AeId        = AtId
 unType (AeTag tag) = AtTag $ signDispatch tag
 unType (AeCmp l r) = AtCmp (unType l) (unType r)
+unType (AeTup l r) = AtTup (unType l) (unType r)
 
 -- | Run an untyped DSL.
 --
@@ -105,6 +114,7 @@ runTree dsl consumer = case dsl of
     AtTag tag -> dispatch tag (\t -> consumer . getTag t . unsafeCoerce)
     AtId      -> consumer
     AtCmp l r -> runTree r (runTree l consumer)
+    AtTup l r -> \f -> runTree l (\lC -> runTree r (\rC -> consumer (lC,rC)) f) f
 -- I'd like to make this work with polymorphic constraints, but that will only
 -- happen if they're embedded in the Dispatch class.  But then how to
 -- specify the context to use?
