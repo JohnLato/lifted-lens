@@ -19,11 +19,10 @@ library
   -- other-modules:       
   build-depends:       base >=4.5 && < 5
                       ,bytestring
+                      ,ghc-prim
                       ,template-haskell >=2.7 && < 2.9
                       ,beamable ==0.1.*
 
-  if impl(ghc < 7.6)
-      build-depends:  ghc-prim
   hs-source-dirs:      src
 
   -- build-depends:       base ==4.6.*, test-framework ==0.6.*, test-framework-hunit ==0.3.*, HUnit ==1.2.*, template-haskell ==2.8.*, beamable ==0.1.*
